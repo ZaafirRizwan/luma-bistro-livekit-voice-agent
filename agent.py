@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import httpx
-from livekit.agents import Agent, AgentServer, AgentSession, JobContext, RunContext, function_tool, inference
+from livekit.agents import Agent, AgentServer, AgentSession, JobContext, RunContext, TurnHandlingOptions, function_tool, inference
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("luma.agent")
@@ -117,6 +117,8 @@ async def entrypoint(ctx: JobContext):
         stt=inference.STT(model='deepgram/flux-general',language='en'),
         llm=inference.LLM(model='openai/gpt-5.3-chat-latest',extra_kwargs={'temperature':0.2}),
         tts=inference.TTS(model='cartesia/sonic-3',voice='9626c31c-bec5-4cca-baa8-f8ba9e84c8bc',language='en'),
+        # Semantic turn detection reduces awkward pauses and supports barge-in.
+        turn_handling=TurnHandlingOptions(turn_detection=inference.TurnDetector()),
         userdata=state,
     )
     @session.on('error')

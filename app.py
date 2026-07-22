@@ -10,7 +10,7 @@ from collections import defaultdict
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from uuid import uuid4
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 app=FastAPI(title="Luma Bistro Reservation API",version="1.0.0")
@@ -28,6 +28,20 @@ failures={"2026-08-16":0}
 handoffs=[]
 sessions: dict[str, dict[str, Any]] = {}
 metrics=defaultdict(list)
+request_latencies=defaultdict(list)
+
+@app.middleware('http')
+async def record_request_latency(request: Request, call_next):
+    started=time.perf_counter()
+    response=await call_next(request)
+    # Operational-only telemetry: route/status/latency, never bodies or PII.
+    key=f'{request.method} {request.url.path} {response.status_code}'
+    request_latencies[key].append((time.perf_counter()-started)*1000)
+    return response
+
+def percentile(values, p):
+    ordered=sorted(values)
+    return round(ordered[min(len(ordered)-1, int((len(ordered)-1)*p))], 1) if ordered else None
 
 def phone(v): return ''.join(c for c in v if c.isdigit() or c=='+')
 def slot(d,t):
@@ -136,6 +150,11 @@ def reset():
     global capacity,reservations,idempotency,failures,handoffs
     capacity=deepcopy(INITIAL); reservations={"res_existing_4821":{"reservation_id":"res_existing_4821","confirmation_code":"LUMA-4821","name":"Alex Morgan","phone":"+13105550147","date":"2026-08-14","time":"18:00","party_size":2,"notes":"Window seat if available","status":"confirmed"}}; idempotency={}; failures={"2026-08-16":0}; handoffs=[]
     return {"status":"reset"}
+
+@app.get('/admin/metrics')
+def get_metrics():
+    """Small demo-safe operational view; production would export OpenTelemetry metrics."""
+    return {"routes":[{"route":route,"count":len(values),"p50_ms":percentile(values,.5),"p95_ms":percentile(values,.95)} for route,values in sorted(request_latencies.items())],"handoff_count":len(handoffs)}
 
 @app.post('/token')
 def token(request: TokenRequest):

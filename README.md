@@ -56,6 +56,8 @@ The mock service is in-memory because that is what the assessment supplies. Prod
 
 Each tool logs endpoint, status, and latency (without reservation payloads). Agent sessions additionally expose a `session error` hook. Use OpenTelemetry/LiveKit telemetry in production for end-of-speech→first-audio, STT/LLM/TTS spans, tool success rate, barge-ins, and duplicate-write attempts.
 
+For the local assessment, `GET /admin/metrics` exposes route count plus p50/p95 milliseconds and handoff count, without payloads or PII. The playground's **Metrics** button renders it.
+
 `python test_scenarios.py` covers the supplied T1–T7 dataset: successful create, alternatives, correction final state, change, cancellation, one retry after 503, and idempotency. See [EVALUATION_TEMPLATE.md](EVALUATION_TEMPLATE.md) for recorded results.
 
 ## Scaling and limitations

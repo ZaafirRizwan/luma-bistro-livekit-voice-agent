@@ -40,3 +40,4 @@ const cases={
 };
 Object.keys(cases).forEach(id=>{const b=document.createElement('button');b.className='scenario';b.textContent=id;b.title='Run '+id;b.onclick=async()=>{result.textContent='Running '+id+'…';try{const calls=await cases[id]();const pass=calls.every(c=>c.status<500)&& (id!=='T6'||calls[1].status===503&&calls[2].status===200);result.textContent=(pass?'PASS ':'CHECK ')+id+'\n\n'+JSON.stringify(calls,null,2);}catch(error){result.textContent='ERROR '+error.message;}};scenarios.append(b);});
 document.querySelector('#reset').onclick=async()=>{const r=await reset();result.textContent='Mock data reset\n\n'+JSON.stringify(r,null,2);};
+document.querySelector('#metrics').onclick=async()=>{const r=await request('/admin/metrics');result.textContent='Operational metrics (no PII)\n\n'+JSON.stringify(r.body,null,2);};
