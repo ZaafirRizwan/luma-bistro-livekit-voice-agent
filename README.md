@@ -64,6 +64,12 @@ For the local assessment, `GET /admin/metrics` exposes route count plus p50/p95 
 
 At 10 concurrent calls, a single worker plus managed LiveKit is sufficient; at 100, run several stateless worker replicas and externalize session/audit state; at 1,000, separate token/API/agent pools, use a durable idempotency table and queue human handoffs, and autoscale workers on active jobs. The demo requires LiveKit Cloud Inference entitlement and intentionally does not include a telephone/SIP integration, persistent storage, authentication, or a recorded video. For a five-minute demo video, show T1, T2, T3, T4 or T5, and T6 in the web client and reset with `/admin/reset` between scenarios.
 
+## Security and PII posture
+
+This assessment keeps its supplied reservation data in memory only: no recordings, transcripts, or reservations survive a restart/reset. The browser never receives LiveKit API credentials; it receives a short-lived, room-scoped participant token from the backend. API responses are marked `no-store`; security headers block framing and unnecessary browser permissions; and application logging records endpoint/status/latency only. A redaction filter masks phone numbers and email addresses as a final guard against accidental logging.
+
+The supplied mock API searches by phone using a query parameter, so production should replace that route with a POST body and an authenticated, rate-limited customer-verification flow. Before public deployment, protect `/token` with the product's authenticated session (or set the optional server-only `DEMO_ACCESS_TOKEN` gate), terminate TLS at the edge, store reservations and idempotency keys in an encrypted database, enforce retention/deletion policies, redact traces, and restrict human-handoff access by role. CORS remains deny-by-default because this app does not enable it.
+
 ## Disclosure
 
 This project was produced with assistance from OpenAI Codex. The implementation choices, code review, and test execution remain the submitter's responsibility.

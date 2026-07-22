@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional, Any
 from pathlib import Path
 import hashlib
+import hmac
 import logging
 import re
 import time
@@ -16,6 +17,21 @@ from pydantic import BaseModel, Field
 app=FastAPI(title="Luma Bistro Reservation API",version="1.0.0")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log=logging.getLogger("luma")
+class PIIRedactionFilter(logging.Filter):
+    """Last-resort protection: logs must never contain raw phone numbers or emails."""
+    phone_pattern=re.compile(r'(?<!\w)(?:\+?\d[\d .()\-]{6,}\d)(?!\w)')
+    email_pattern=re.compile(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b')
+    def filter(self, record):
+        try:
+            message=record.getMessage()
+            record.msg=self.email_pattern.sub('[REDACTED_EMAIL]',self.phone_pattern.sub('[REDACTED_PHONE]',message))
+            record.args=()
+        except Exception:
+            pass
+        return True
+for handler in logging.getLogger().handlers: handler.addFilter(PIIRedactionFilter())
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('uvicorn.access').setLevel(logging.WARNING)
 RESTAURANT={"name":"Luma Bistro","timezone":"America/Los_Angeles","hours":"Tue-Sun 17:00-22:00; Mon closed","slot_minutes":30,"max_standard_party_size":8}
 INITIAL={
  "2026-08-14":{"17:30":8,"18:00":4,"18:30":0,"19:00":2,"19:30":8,"20:00":6},
@@ -37,6 +53,13 @@ async def record_request_latency(request: Request, call_next):
     # Operational-only telemetry: route/status/latency, never bodies or PII.
     key=f'{request.method} {request.url.path} {response.status_code}'
     request_latencies[key].append((time.perf_counter()-started)*1000)
+    response.headers['Cache-Control']='no-store'
+    response.headers['Pragma']='no-cache'
+    response.headers['X-Content-Type-Options']='nosniff'
+    response.headers['X-Frame-Options']='DENY'
+    response.headers['Referrer-Policy']='no-referrer'
+    response.headers['Permissions-Policy']='camera=(), geolocation=(), payment=(), microphone=(self)'
+    response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cdn.jsdelivr.net wss:; media-src blob:; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     return response
 
 def percentile(values, p):
@@ -157,15 +180,18 @@ def get_metrics():
     return {"routes":[{"route":route,"count":len(values),"p50_ms":percentile(values,.5),"p95_ms":percentile(values,.95)} for route,values in sorted(request_latencies.items())],"handoff_count":len(handoffs)}
 
 @app.post('/token')
-def token(request: TokenRequest):
+def token(request: TokenRequest, x_demo_access: Optional[str]=Header(None,alias='X-Demo-Access')):
     """Issue a short-lived, room-scoped browser token. Never expose API secrets."""
     import os
     from livekit import api
     url=os.getenv('LIVEKIT_URL')
     key=os.getenv('LIVEKIT_API_KEY')
     secret=os.getenv('LIVEKIT_API_SECRET')
+    required_access=os.getenv('DEMO_ACCESS_TOKEN')
     if not all((url,key,secret)):
         raise HTTPException(503, detail='LiveKit is not configured. Copy .env.example to .env.')
+    if required_access and not (x_demo_access and hmac.compare_digest(x_demo_access,required_access)):
+        raise HTTPException(401, detail='Unauthorized')
     room=request.room_name or f'luma-{uuid4().hex[:12]}'
     identity=f'guest-{uuid4().hex[:12]}'
     jwt=(api.AccessToken(key,secret)
