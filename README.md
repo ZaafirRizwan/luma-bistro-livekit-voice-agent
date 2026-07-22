@@ -40,7 +40,7 @@ python test_scenarios.py
 
 ## Conversation safety and tool policy
 
-The system prompt makes the confirmation gate explicit: availability is checked before a proposal; all critical fields are restated; only an immediate explicit confirmation permits `create_reservation`, `modify_reservation`, or `cancel_reservation`. Corrections supersede a pending confirmation. The create tool uses one session idempotency UUID, so an SDK retry returns the exact same reservation instead of a duplicate. Pydantic/OpenAPI enforce tool payload constraints; the tool layer exposes 422/409 responses rather than guessing.
+The system prompt makes the confirmation gate explicit: availability is checked before a proposal; all critical fields are restated; only an immediate explicit confirmation permits a write. This is enforced in code: `authorize_write` arms one action and each create/modify/cancel tool rejects unarmed calls, then clears the authorization after use. Corrections supersede a pending confirmation. The create tool uses one session idempotency UUID, so an SDK retry returns the exact same reservation instead of a duplicate. Pydantic/OpenAPI enforce tool payload constraints; the tool layer exposes 422/409 responses rather than guessing.
 
 Availability retries exactly once on 503 with the API-provided 500 ms recovery interval. Other failures are surfaced to the caller; the agent can call `handoff`, which persists a concise summary and phone number in the mock API. Parties over eight are also handed off.
 

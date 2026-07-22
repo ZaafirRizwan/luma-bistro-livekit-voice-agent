@@ -23,14 +23,15 @@ class CallState:
     pending_action: Optional[str] = None
     idempotency_key: str = field(default_factory=lambda: str(uuid.uuid4()))
     tool_latencies_ms: list[float] = field(default_factory=list)
+    confirmed_action: Optional[str] = None
 
 class LumaAgent(Agent):
     def __init__(self):
         super().__init__(instructions="""You are Luma, the concise, warm phone host for Luma Bistro.
 Restaurant facts: America/Los_Angeles; Tue-Sun 5-10 PM; 30-minute slots; parties over 8 need handoff.
 You MUST use tools for every reservation fact and write. Never invent availability.
-For a new reservation, collect name, phone, ISO date, 24-hour time, party size, optional notes; check availability; state all critical details and get an explicit yes immediately before create_reservation.
-For a change/cancellation, first find_reservation using phone or confirmation code; describe the exact change and get an explicit yes immediately before the write.
+For a new reservation, collect name, phone, ISO date, 24-hour time, party size, optional notes; check availability; state all critical details and get an explicit yes, then call authorize_write(action='create') immediately before create_reservation.
+For a change/cancellation, first find_reservation using phone or confirmation code; describe the exact change and get an explicit yes, then call authorize_write with the matching action immediately before the write.
 If the caller corrects a detail, stop the prior confirmation, acknowledge it, and use the corrected value. Do not create twice: call create only once per confirmed request.
 On tool errors, explain briefly. For a temporary availability failure retry exactly once; if it fails again, call handoff. Keep responses short and speakable.""")
 
@@ -48,17 +49,31 @@ On tool errors, explain briefly. For a temporary availability failure retry exac
         """Check a requested ISO date and HH:MM time before offering or booking it."""
         if not 1 <= party_size <= 8: return {"ok":False,"error":"Party size must be 1 through 8; offer human handoff for larger parties."}
         result=await self._request(context.userdata,'GET','/availability',params={'date':date,'time':time,'party_size':party_size})
-        if result['status'] == 503:
+        if result.get('status') == 503:
             await asyncio.sleep(.5)
             result=await self._request(context.userdata,'GET','/availability',params={'date':date,'time':time,'party_size':party_size})
         return result
 
     @function_tool
+    async def authorize_write(self, context: RunContext[CallState], action: str) -> dict:
+        """Arm exactly one create, modify, or cancel write only after the caller has just explicitly said yes to the final summary."""
+        if action not in {'create','modify','cancel'}:
+            return {'ok':False,'error':'action must be create, modify, or cancel'}
+        context.userdata.confirmed_action=action
+        log.info('write authorized action=%s', action)
+        return {'ok':True,'action':action,'message':'One confirmed write is authorized.'}
+
+    @function_tool
     async def create_reservation(self, context: RunContext[CallState], name: str, phone: str, date: str, time: str, party_size: int, notes: Optional[str]=None) -> dict:
         """Create one already-confirmed reservation. Never call unless caller just explicitly confirmed all details."""
         state=context.userdata
+        if state.confirmed_action != 'create':
+            return {'ok':False,'error':'Creation blocked: restate critical details, obtain explicit confirmation, then call authorize_write(action="create").'}
         payload={'name':name,'phone':phone,'date':date,'time':time,'party_size':party_size,'notes':notes}
-        return await self._request(state,'POST','/reservations',json=payload,headers={'Idempotency-Key':state.idempotency_key})
+        try:
+            return await self._request(state,'POST','/reservations',json=payload,headers={'Idempotency-Key':state.idempotency_key})
+        finally:
+            state.confirmed_action=None
 
     @function_tool
     async def find_reservation(self, context: RunContext[CallState], phone: Optional[str]=None, confirmation_code: Optional[str]=None) -> dict:
@@ -72,13 +87,21 @@ On tool errors, explain briefly. For a temporary availability failure retry exac
         """Apply an already-confirmed modification to the reservation that was found in this call."""
         state=context.userdata
         if not state.reservation_id: return {'ok':False,'error':'Find the reservation first.'}
-        return await self._request(state,'PATCH',f'/reservations/{state.reservation_id}',json={k:v for k,v in {'date':date,'time':time,'party_size':party_size,'notes':notes}.items() if v is not None})
+        if state.confirmed_action != 'modify': return {'ok':False,'error':'Modification blocked: get explicit confirmation then authorize_write(action="modify").'}
+        try:
+            return await self._request(state,'PATCH',f'/reservations/{state.reservation_id}',json={k:v for k,v in {'date':date,'time':time,'party_size':party_size,'notes':notes}.items() if v is not None})
+        finally:
+            state.confirmed_action=None
 
     @function_tool
     async def cancel_reservation(self, context: RunContext[CallState]) -> dict:
         """Cancel the found reservation after caller explicitly confirms cancellation."""
         if not context.userdata.reservation_id: return {'ok':False,'error':'Find the reservation first.'}
-        return await self._request(context.userdata,'POST',f'/reservations/{context.userdata.reservation_id}/cancel')
+        if context.userdata.confirmed_action != 'cancel': return {'ok':False,'error':'Cancellation blocked: get explicit confirmation then authorize_write(action="cancel").'}
+        try:
+            return await self._request(context.userdata,'POST',f'/reservations/{context.userdata.reservation_id}/cancel')
+        finally:
+            context.userdata.confirmed_action=None
 
     @function_tool
     async def handoff(self, context: RunContext[CallState], reason: str, conversation_summary: str, customer_phone: Optional[str]=None) -> dict:
@@ -98,11 +121,8 @@ async def entrypoint(ctx: JobContext):
     )
     @session.on('error')
     def on_error(event): log.exception('session error: %s', event)
-    try:
-        await session.start(agent=LumaAgent(),room=ctx.room)
-        await session.generate_reply(instructions='Greet the caller and ask how you can help with a reservation.')
-    finally:
-        await client.aclose()
+    await session.start(agent=LumaAgent(),room=ctx.room)
+    await session.generate_reply(instructions='Greet the caller and ask how you can help with a reservation.')
 
 if __name__ == '__main__':
     from livekit.agents import cli
