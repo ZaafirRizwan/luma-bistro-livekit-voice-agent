@@ -28,6 +28,8 @@ uvicorn app:app --reload
 python agent.py dev
 ```
 
+Or, after creating `.env`, run both processes with `docker compose up --build`.
+
 Open `http://127.0.0.1:8000`, allow microphone access, and select **Start a call**. Each call receives a unique room and a short-lived, scoped token that dispatches `luma-reservation-agent`.
 
 For API-only validation:

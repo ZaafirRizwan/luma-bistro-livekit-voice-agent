@@ -1,5 +1,14 @@
 services:
-  luma-voice-agent:
+  reservation-api:
     build: .
     ports:
       - "8000:8000"
+    env_file: .env
+  luma-voice-agent:
+    build: .
+    command: ["python", "agent.py", "start"]
+    env_file: .env
+    environment:
+      RESERVATION_API_URL: http://reservation-api:8000
+    depends_on:
+      - reservation-api
