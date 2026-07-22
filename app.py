@@ -45,6 +45,7 @@ handoffs=[]
 sessions: dict[str, dict[str, Any]] = {}
 metrics=defaultdict(list)
 request_latencies=defaultdict(list)
+voice_latency_samples=[]
 
 @app.middleware('http')
 async def record_request_latency(request: Request, call_next):
@@ -123,6 +124,9 @@ class Handoff(BaseModel):
 class TokenRequest(BaseModel):
     participant_name: str = "Guest"
     room_name: Optional[str] = None
+class VoiceLatencySample(BaseModel):
+    call_id: str = Field(min_length=8,max_length=80)
+    end_of_speech_to_audio_ms: float = Field(gt=0,le=60000)
 
 @app.get('/health')
 def health(): return {"status":"ok"}
@@ -177,7 +181,14 @@ def reset():
 @app.get('/admin/metrics')
 def get_metrics():
     """Small demo-safe operational view; production would export OpenTelemetry metrics."""
-    return {"routes":[{"route":route,"count":len(values),"p50_ms":percentile(values,.5),"p95_ms":percentile(values,.95)} for route,values in sorted(request_latencies.items())],"handoff_count":len(handoffs)}
+    voice=[sample['end_of_speech_to_audio_ms'] for sample in voice_latency_samples]
+    return {"routes":[{"route":route,"count":len(values),"p50_ms":percentile(values,.5),"p95_ms":percentile(values,.95)} for route,values in sorted(request_latencies.items())],"voice_latency":{"count":len(voice),"p50_ms":percentile(voice,.5),"p95_ms":percentile(voice,.95),"last_ms":round(voice[-1],1) if voice else None},"handoff_count":len(handoffs)}
+
+@app.post('/telemetry/voice-latency')
+def record_voice_latency(sample: VoiceLatencySample):
+    """Receive only timing metadata—never caller/agent transcript text or audio."""
+    voice_latency_samples.append({"call_id":sample.call_id,"end_of_speech_to_audio_ms":sample.end_of_speech_to_audio_ms})
+    return {"status":"recorded"}
 
 @app.post('/token')
 def token(request: TokenRequest, x_demo_access: Optional[str]=Header(None,alias='X-Demo-Access')):
