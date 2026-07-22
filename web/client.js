@@ -23,3 +23,20 @@ connectButton.onclick = async () => {
   } catch (error) { state(`Could not connect: ${error.message}`); connectButton.disabled=false; }
 };
 disconnectButton.onclick=()=>room?.disconnect();
+
+const result=document.querySelector('#result'); const scenarios=document.querySelector('#scenarios');
+const request=async(path, options={})=>{const r=await fetch(path,options); const body=await r.json(); return {method:options.method||'GET',path,status:r.status,body};};
+const json=(body,headers={})=>({method:'POST',headers:{'content-type':'application/json',...headers},body:JSON.stringify(body)});
+const create=(key,body)=>request('/reservations',json(body,{'Idempotency-Key':key}));
+const reset=()=>request('/admin/reset',{method:'POST'});
+const cases={
+  T1:async()=>[await reset(),await request('/availability?date=2026-08-14&time=18:00&party_size=4'),await create('play-t1',{name:'Jordan Lee',phone:'310-555-0199',date:'2026-08-14',time:'18:00',party_size:4,notes:null})],
+  T2:async()=>[await reset(),await request('/availability?date=2026-08-14&time=18:30&party_size=4'),await create('play-t2',{name:'Taylor Kim',phone:'424-555-0188',date:'2026-08-14',time:'19:30',party_size:4})],
+  T3:async()=>[await reset(),await request('/availability?date=2026-08-15&time=18:30&party_size=4'),await create('play-t3',{name:'Casey Brown',phone:'213-555-0114',date:'2026-08-15',time:'18:30',party_size:4})],
+  T4:async()=>{const out=[await reset(),await request('/reservations/search?confirmation_code=LUMA-4821')]; const id=out[1].body.results[0].reservation_id; out.push(await request('/reservations/'+id,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({time:'19:30',party_size:4})}));return out;},
+  T5:async()=>[await reset(),await request('/reservations/search?confirmation_code=LUMA-4821'),await request('/reservations/res_existing_4821/cancel',{method:'POST'})],
+  T6:async()=>[await reset(),await request('/availability?date=2026-08-16&time=18:00&party_size=2'),await request('/availability?date=2026-08-16&time=18:00&party_size=2')],
+  T7:async()=>{const body={name:'Morgan Reed',phone:'310-555-0166',date:'2026-08-14',time:'20:00',party_size:2};return[await reset(),await create('play-same-key',body),await create('play-same-key',body)];}
+};
+Object.keys(cases).forEach(id=>{const b=document.createElement('button');b.className='scenario';b.textContent=id;b.title='Run '+id;b.onclick=async()=>{result.textContent='Running '+id+'…';try{const calls=await cases[id]();const pass=calls.every(c=>c.status<500)&& (id!=='T6'||calls[1].status===503&&calls[2].status===200);result.textContent=(pass?'PASS ':'CHECK ')+id+'\n\n'+JSON.stringify(calls,null,2);}catch(error){result.textContent='ERROR '+error.message;}};scenarios.append(b);});
+document.querySelector('#reset').onclick=async()=>{const r=await reset();result.textContent='Mock data reset\n\n'+JSON.stringify(r,null,2);};

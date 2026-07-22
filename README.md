@@ -32,6 +32,8 @@ Or, after creating `.env`, run both processes with `docker compose up --build`.
 
 Open `http://127.0.0.1:8000`, allow microphone access, and select **Start a call**. Each call receives a unique room and a short-lived, scoped token that dispatches `luma-reservation-agent`.
 
+The same page includes an **Assessment playground**: reset the mock state or run T1–T7 to view each API request and response. It is intentionally labelled as an API harness; use the voice call above to demonstrate streaming media and interruption behavior.
+
 For API-only validation:
 
 ```bash
