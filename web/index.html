@@ -1,2 +1,46 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Luma Bistro Voice Host</title><link rel="stylesheet" href="/static/styles.css"></head>
-<body><main><p class="eyebrow">LUMA BISTRO · LIVEKIT VOICE HOST</p><h1>Reservations, naturally.</h1><p id="status">Ready to connect</p><div class="orb" id="orb"></div><button id="connect">Start a call</button><button id="disconnect" disabled>End call</button><section><h2>Live transcript</h2><div id="transcript" aria-live="polite">Your conversation will appear here.</div></section><p class="hint">Allow microphone access. You can interrupt Luma any time while she is speaking.</p><section class="playground"><div class="section-title"><div><h2>Assessment playground</h2><p>Runs the supplied API scenarios against freshly reset mock data. This validates reservation tools, not microphone/LLM behavior.</p></div><div><button id="metrics">Metrics</button><button id="reset">Reset data</button></div></div><div class="scenarios" id="scenarios"></div><pre id="result">Choose a scenario to inspect API calls and results.</pre></section></main><script type="module" src="/static/client.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Luma Bistro | Voice Reservations</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body data-call-state="ready">
+  <div class="glow glow-one"></div><div class="glow glow-two"></div>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Luma Bistro home"><span class="brand-mark">L</span><span>Luma <em>Bistro</em></span></a>
+      <div class="topbar-meta"><span class="live-dot"></span><span>Voice concierge</span><span class="hours">Tue–Sun · 5–10 PM</span></div>
+    </header>
+
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy"><p class="kicker">PRIVATE DINING, MADE EASY</p><h1 id="page-title">Your table is<br><i>waiting.</i></h1><p>Speak naturally with Luma to reserve, change, or cancel a table. She will always confirm the details with you first.</p></div>
+      <aside class="service-note"><span class="note-icon">✦</span><div><strong>Thoughtful by design</strong><p>Live availability, clear confirmations, and a human handoff whenever you need it.</p></div></aside>
+    </section>
+
+    <section class="voice-grid" aria-label="Voice reservation console">
+      <article class="call-card">
+        <div class="card-heading"><div><span class="eyebrow">LIVE CALL</span><h2>Talk to Luma</h2></div><span class="state-pill" id="state-pill"><span></span><b id="status">Ready to connect</b></span></div>
+        <div class="voice-stage">
+          <div class="orbital orbital-a"></div><div class="orbital orbital-b"></div>
+          <div class="orb" id="orb"><span class="orb-letter">L</span><span class="sound-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span></div>
+          <p class="stage-message" id="stage-message">Press start when you’re ready to speak.</p>
+        </div>
+        <div class="call-actions"><button id="connect" class="button button-primary"><span class="button-icon">⌁</span> Start conversation</button><button id="disconnect" class="button button-quiet" disabled>End call</button></div>
+        <p class="privacy-note"><span>●</span> Your microphone is used only for this live session. You can speak over Luma at any time.</p>
+      </article>
+
+      <article class="transcript-card">
+        <div class="card-heading"><div><span class="eyebrow">LIVE NOTES</span><h2>Conversation</h2></div><button id="clear-transcript" class="text-button">Clear</button></div>
+        <div id="transcript" class="transcript" aria-live="polite"><div class="empty-state"><span>✦</span><p>Your conversation appears here in real time.</p></div></div>
+        <div class="transcript-footer"><span class="status-ring"></span><span>Secure session · LiveKit WebRTC</span></div>
+      </article>
+    </section>
+
+    <section class="playground" aria-labelledby="playground-title">
+      <div class="playground-head"><div><span class="eyebrow">EVALUATION WORKBENCH</span><h2 id="playground-title">Reservation API playground</h2><p>Reset the supplied mock data and inspect each standard tool-flow scenario.</p></div><div class="utility-actions"><button id="metrics" class="button button-quiet">View metrics</button><button id="reset" class="button button-dark">Reset data</button></div></div>
+      <div class="scenario-layout"><div class="scenarios" id="scenarios" aria-label="Standard scenarios"></div><pre id="result">Choose a scenario to inspect the API calls and results.</pre></div>
+    </section>
+  </main>
+  <script type="module" src="/static/client.js"></script>
+</body></html>
