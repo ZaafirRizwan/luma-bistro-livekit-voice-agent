@@ -81,7 +81,7 @@ Each tool logs endpoint, status, and latency (without reservation payloads). Age
 
 For the local assessment, `GET /admin/metrics` exposes route count plus p50/p95 milliseconds and handoff count, without payloads or PII. The playground's **Metrics** button renders it.
 
-`python test_scenarios.py` covers the supplied T1–T7 dataset: successful create, alternatives, correction final state, change, cancellation, one retry after 503, and idempotency. See [EVALUATION_TEMPLATE.md](EVALUATION_TEMPLATE.md) for recorded results.
+`python test_scenarios.py` covers the supplied T1–T7 dataset: successful create, alternatives, correction final state, change, cancellation, one retry after 503, and idempotency. See [EVALUATION_RESULTS.md](EVALUATION_RESULTS.md) for recorded results.
 
 ## Scaling and limitations
 
