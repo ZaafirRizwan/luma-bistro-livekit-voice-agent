@@ -13,7 +13,9 @@ from fastapi.responses import FileResponse
 from uuid import uuid4
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
 
+load_dotenv()
 app=FastAPI(title="Luma Bistro Reservation API",version="1.0.0")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log=logging.getLogger("luma")

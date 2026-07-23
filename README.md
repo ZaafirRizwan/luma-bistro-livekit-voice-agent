@@ -11,32 +11,55 @@ A compact LiveKit Agents implementation for a fictional restaurant. It provides 
 
 ## Run locally
 
-Requirements: Python 3.12 and a LiveKit Cloud project with **LiveKit Inference enabled**.
+Requirements: Python 3.12, Git, and a LiveKit Cloud project with **LiveKit Inference enabled**.
 
-```bash
+1. Clone the repository and enter it:
+
+```powershell
+git clone https://github.com/ZaafirRizwan/luma-bistro-livekit-voice-agent.git
+Set-Location luma-bistro-livekit-voice-agent
+```
+
+2. Create and activate an isolated virtual environment, then install dependencies:
+
+```powershell
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-Copy-Item .env.example .env
-# Put your LiveKit URL/key/secret in .env; do not put them in source control.
 ```
 
-Run the mock API/web app in one terminal (your shell must load `.env`), then the agent worker in another:
+3. Create the local environment file:
 
-```bash
-uvicorn app:app --reload
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env` and set `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET`. The file is gitignored and is loaded automatically by both processes. Never commit real credentials.
+
+4. Start the API and browser client in the first activated terminal:
+
+```powershell
+uvicorn app:app --host 127.0.0.1 --port 8000 --no-access-log
+```
+
+5. Open a second terminal, activate the same virtual environment, and start the LiveKit worker:
+
+```powershell
+.venv\Scripts\activate
 python agent.py dev
 ```
 
-Or, after creating `.env`, run both processes with `docker compose up --build`.
+Wait for `registered worker` in the second terminal.
 
-Open `http://127.0.0.1:8000`, allow microphone access, and select **Start a call**. Each call receives a unique room and a short-lived, scoped token that dispatches `luma-reservation-agent`.
+6. Open `http://127.0.0.1:8000`, allow microphone access, and select **Start a call**. Each call receives a unique room and a short-lived, scoped token that dispatches `luma-reservation-agent`.
+
+Docker alternative: after completing step 3, run `docker compose up --build` instead of steps 4 and 5.
 
 The same page includes an **Assessment playground**: reset the mock state or run T1–T7 to view each API request and response. It is intentionally labelled as an API harness; use the voice call above to demonstrate streaming media and interruption behavior.
 
 For API-only validation:
 
-```bash
+```powershell
 python test_scenarios.py
 ```
 

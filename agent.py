@@ -9,8 +9,10 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import httpx
+from dotenv import load_dotenv
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext, RunContext, TurnHandlingOptions, function_tool, inference
 
+load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("luma.agent")
 API_URL = os.getenv("RESERVATION_API_URL", "http://127.0.0.1:8000")
